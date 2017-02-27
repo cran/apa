@@ -1,6 +1,6 @@
 #' Report ANOVA in APA style
 #'
-#' @param x A call to \code{ez::ezANOVA} or \code{afex::afex_ez},
+#' @param x A call to \code{aov}, \code{ez::ezANOVA}, or \code{afex::afex_ez},
 #'   \code{afex::afex_car} or \code{afex::afex_4}
 #' @param effect Character string indicating the name of the effect to display.
 #'   If is \code{NULL}, all effects are reported (default).
@@ -50,10 +50,20 @@ anova_apa <- function(x, effect = NULL,
   es <- match.arg(es)
   format <- match.arg(format)
 
+  es <- switch(es, pes =, petasq = "petasq", ges =, getasq = "getasq")
+
   # Use a pseudo-S3 method dispatch, because `ezANOVA` returns a list without a
   # particular class
 
-  if (inherits(x, "afex_aov"))
+  if (inherits(x, c("aov", "lm")))
+  {
+    anova_apa_aov(x, effect, es, format, info, print)
+  }
+  if (inherits(x, c("aovlist", "listof")))
+  {
+    anova_apa_aovlist(x, effect, sph_corr, es, format, info, print)
+  }
+  else if (inherits(x, "afex_aov"))
   {
     anova_apa_afex(x, effect, sph_corr, es, format, info, print)
   }
@@ -63,13 +73,116 @@ anova_apa <- function(x, effect = NULL,
   }
   else
   {
-    stop("'x' must be a call to `ez::ezANOVA` or `afex::aov_*`")
+    stop("'x' must be a call to `aov`, `ez::ezANOVA`, or `afex::aov_*`")
   }
+}
+
+#' @importFrom dplyr data_frame
+#' @importFrom purrr map_chr
+#' @importFrom stringr str_trim
+anova_apa_aov <- function(x, effect, es, format, info, print)
+{
+  # Check for unsupported effect size for calls to `aov`
+  if (es == "getasq")
+  {
+    warning(paste("A call to `aov` does not support generalized eta-squared,",
+                  "using partial eta-squared instead."), call. = FALSE)
+
+    es <- "petasq"
+  }
+
+  info_msg <- ""
+
+  # Calculate ANOVA table
+  anova <- summary(x, intercept = TRUE)[[1]]
+
+  # The row number where residuals are stored
+  row_resid <- nrow(anova)
+
+  # Extract information from anova object
+  tbl <- data_frame(
+    effects = str_trim(row.names(anova)[-row_resid]),
+    statistic = map_chr(anova$`F value`[-row_resid], fmt_stat),
+    df_n = anova$Df[-row_resid], df_d = anova$Df[row_resid],
+    p = map_chr(anova$`Pr(>F)`[-row_resid], fmt_pval),
+    symb = map_chr(anova$`Pr(>F)`[-row_resid], p_to_symbol),
+    es = map_chr(effects, ~ fmt_es(do.call(es, list(x, .x)),
+                                   leading_zero = FALSE))
+  )
+
+  if (info && info_msg != "") message(info_msg)
+
+  anova_apa_print(tbl, effect, es, format, print)
+}
+
+#' @importFrom dplyr bind_rows
+#' @importFrom purrr flatten map
+anova_apa_aovlist <- function(x, effect, sph_corr, es, format, info, print)
+{
+  # Inform that calls to `aov` do not support sphericity correction
+  if (sph_corr != "none")
+  {
+    warning(paste("A call to `aov` does not support sphericity correction,",
+                  "continuing without correction of possible violated",
+                  "sphericity"), call. = FALSE)
+  }
+
+  # Check for unsupported effect size for calls to `aov`
+  if (es == "getasq")
+  {
+    warning(paste("A call to `aov` does not support generalized eta-squared,",
+                  "using partial eta-squared instead."), call. = FALSE)
+
+    es <- "petasq"
+  }
+
+  info_msg <- ""
+
+  # Calculate ANOVA tables for each stratum
+  anova <- flatten(summary(x))
+
+  # Extract information from list of ANOVA tables and store in single data frame
+  tbl <- bind_rows(map(anova, extract_stats_aovlist))
+
+  # Calculate effect sizes as extra step, because `extract_stats_aovlist` can't
+  # call effect size function on aovlist object ('x') as this is not forwarded.
+  tbl$es <- map_chr(tbl$effects, ~ fmt_es(do.call(es, list(x, .x)),
+                                          leading_zero = FALSE))
+
+  # Reorder rows in tbl
+  tbl <- reorder_anova_tbl(tbl)
+
+  if (info && info_msg != "") message(info_msg)
+
+  anova_apa_print(tbl, effect, es, format, print)
+}
+
+#' @importFrom dplyr data_frame
+#' @importFrom stringr str_trim
+extract_stats_aovlist <- function(x)
+{
+  # Return NULL if stratum contains residuals only
+  if (nrow(x) == 1)
+  {
+    return(NULL)
+  }
+
+  # The row number where residuals are stored
+  row_resid <- nrow(x)
+
+  data_frame(
+    effects = str_trim(row.names(x)[-row_resid]),
+    statistic = map_chr(x$`F value`[-row_resid], fmt_stat),
+    df_n = x$Df[-row_resid], df_d = x$Df[row_resid],
+    p = map_chr(x$`Pr(>F)`[-row_resid], fmt_pval),
+    symb = map_chr(x$`Pr(>F)`[-row_resid], p_to_symbol)
+  )
 }
 
 #' @importFrom dplyr data_frame
 #' @importFrom magrittr %>% %<>%
 #' @importFrom purrr map map_chr
+#' @importFrom stringr str_extract
 anova_apa_afex <- function(x, effect, sph_corr, es, format, info, print)
 {
   info_msg <- ""
@@ -118,6 +231,21 @@ anova_apa_afex <- function(x, effect, sph_corr, es, format, info, print)
         s$pval.adjustments[mauchlys, paste0("Pr(>F[", corr_method, "])")] %>%
         map_chr(fmt_pval)
 
+      # Update significance asterisks
+      tbl$symb <-
+        tbl$p %>%
+        # P-values have already been formatted, so need to workaround that
+        map_chr(~ {
+          if (.x == "< .001")
+          {
+            "***"
+          }
+          else
+          {
+            .x %>% str_extract("[0-9.]+") %>% as.numeric() %>% p_to_symbol()
+          }
+        })
+
       # Add performed corrections to info message
       info_msg %<>% paste0(
         "Sphericity corrections:\n",
@@ -139,6 +267,9 @@ anova_apa_afex <- function(x, effect, sph_corr, es, format, info, print)
     }
   }
 
+  # Reorder rows in tbl
+  tbl <- reorder_anova_tbl(tbl)
+
   if (info && info_msg != "") message(info_msg)
 
   anova_apa_print(tbl, effect, es, format, print)
@@ -146,6 +277,7 @@ anova_apa_afex <- function(x, effect, sph_corr, es, format, info, print)
 
 #' @importFrom dplyr data_frame left_join
 #' @importFrom magrittr %>% %<>%
+#' @importFrom stringr str_extract
 anova_apa_ezanova <- function(x, effect, sph_corr, es, format, info, print)
 {
   info_msg <- ""
@@ -193,6 +325,21 @@ anova_apa_ezanova <- function(x, effect, sph_corr, es, format, info, print)
       tbl[match(mauchlys$Effect, tbl$effects), "p"] <-
         mauchlys[[paste0("p[", corr_method, "]")]] %>%
         map_chr(fmt_pval)
+
+      # Update significance asterisks
+      tbl$symb <-
+        tbl$p %>%
+        # P-values have already been formatted, so need to workaround that
+        map_chr(~ {
+          if (.x == "< .001")
+          {
+            "***"
+          }
+          else
+          {
+            .x %>% str_extract("[0-9.]+") %>% as.numeric() %>% p_to_symbol()
+          }
+        })
 
       # Add performed corrections to info message
       info_msg %<>% paste0(
@@ -365,3 +512,29 @@ anova_apa_print_plotmath <- function(tbl, text, effect)
     "( [<=>] \\.[0-9]{3}, )", "( [<=] -?[0-9]*\\.[0-9]{2}$)"
   )
 }
+
+#' @importFrom magrittr %>%
+#' @importFrom purrr map map_dbl
+reorder_anova_tbl <- function(x)
+{
+  # Get names of all main effects
+  factors <- grep("[(:]", x$effects, value = TRUE, invert = TRUE)
+
+  # Function for creating names of interaction effects
+  concat_fctrs <- function(...) paste(..., collapse = ":")
+
+  new_order <-
+    seq_along(factors) %>%
+    # Create the new effects order (main effects, two-way interactions, ...)
+    map(~ combn(factors, .x, FUN = concat_fctrs, simplify = FALSE)) %>%
+    unlist() %>%
+    # Add regex for intercept line
+    { c("\\(Intercept\\)", .) } %>%
+    # Get row index for each effect in old ANOVA table
+    map_dbl(~ grep(paste0("^", .x, "$"), x$effects))
+
+
+  # Apply new order to 'x'
+  x[new_order, ]
+}
+
