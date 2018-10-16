@@ -6,8 +6,8 @@
 \usage{
 anova_apa(x, effect = NULL, sph_corr = c("greenhouse-geisser", "gg",
   "huynh-feldt", "hf", "none"), es = c("petasq", "pes", "getasq", "ges"),
-  format = c("text", "markdown", "rmarkdown", "html", "latex", "docx",
-  "plotmath"), info = FALSE, print = TRUE)
+  format = c("text", "markdown", "rmarkdown", "html", "latex",
+  "latex_math", "docx", "plotmath"), info = FALSE, print = TRUE)
 }
 \arguments{
 \item{x}{A call to \code{aov}, \code{ez::ezANOVA}, or \code{afex::afex_ez},
@@ -29,12 +29,12 @@ or \code{"ges"}).}
 
 \item{format}{Character string specifying the output format. One of
 \code{"text"}, \code{"markdown"}, \code{"rmarkdown"}, \code{html},
-\code{"latex"}, \code{"docx"} or \code{"plotmath"}.}
+\code{"latex"}, \code{"latex_math"}, \code{"docx"} or \code{"plotmath"}.}
 
 \item{info}{Logical indicating whether to print a message on the used test
 (default is \code{FALSE})}
 
-\item{print}{Logical indicating wheter to print the formatted output via
+\item{print}{Logical indicating whether to print the formatted output via
 \code{cat} (\code{TRUE}, default) or return as a data frame.}
 }
 \description{
