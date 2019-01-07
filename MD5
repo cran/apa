@@ -1,6 +1,6 @@
-99a1ee17f6f0436b91832700281fadbe *DESCRIPTION
+9fdc53368058197808668cb7714a9374 *DESCRIPTION
 7aad6f5b4a68d3ded4f47f7cb693bc4a *NAMESPACE
-1966876ba422aa06e08090684a2931de *NEWS.md
+319e3f2660f9e109c5182df751aa5050 *NEWS.md
 6077e09ba69a53742d5b523f4228680c *R/anova_apa.R
 d3a784b6199fbd581750429be8261157 *R/apa.R
 8365d971c3984ee54bcbadba5cffe757 *R/chisq_apa.R
@@ -9,13 +9,13 @@ e8decf80bd559598faf9ccc3cd376c49 *R/cor_apa.R
 edb45c6ec7d58bf94e3e0eec8908fa13 *R/eta_squared.R
 a105b5a250ff31f011a46981600781ad *R/global_variables.R
 57323b04ad921928381184dea6beeddb *R/t_apa.R
-8a1364883dae6ef0c1144ad6f495b9a7 *R/t_test.R
+2e89df095ad4e7c355ceb10be318fdea *R/t_test.R
 59a764399038fcab59197e7bc299a40e *R/utils_docx.R
 7cd2903c07f75fcfaa8050edb80a3bdf *R/utils_format.R
 7f7c8be73a2712be999f91cb7d707bb6 *build/vignette.rds
 3787f5a84c9c2cab28fac7a58a1296a4 *inst/doc/introduction.R
 ea48ec04fe106017e7fa6c02839d98de *inst/doc/introduction.Rmd
-014e2111e6e873eb9923b7bc71fa510b *inst/doc/introduction.html
+34be1633cb8230927b2a5c19f765b55e *inst/doc/introduction.html
 dbedb5cc169798a29544fe823032ff41 *man/anova_apa.Rd
 48ef88cd74c53201ad3ce1356940836d *man/apa.Rd
 a9c578a721d74b2151d2c1d506bb329f *man/chisq_apa.Rd
@@ -27,7 +27,7 @@ a9c578a721d74b2151d2c1d506bb329f *man/chisq_apa.Rd
 88626705b9a20bf028348fbae2bbac8e *man/t_apa.Rd
 91fa9d549018d920102a85798b29a429 *man/t_test.Rd
 35a22ecb8480ea661a6975d2200ff5b3 *tests/testthat.R
-53445b3c44f49de776e9c505d255ac45 *tests/testthat/test-anova-apa.R
+8fec75392e0df04d0455bda49aa56d2e *tests/testthat/test-anova-apa.R
 16fe325818c895c87cda1ba52a8400e6 *tests/testthat/test-chisq-apa.R
 44e150ecedbe4292d8544e4e9208ed77 *tests/testthat/test-cohens-d.R
 0ae496e296fb8aa94e70cbf243c0aaf5 *tests/testthat/test-cor-apa.R
