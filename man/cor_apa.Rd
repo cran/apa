@@ -4,11 +4,21 @@
 \alias{cor_apa}
 \title{Report Correlation in APA style}
 \usage{
-cor_apa(x, format = c("text", "markdown", "rmarkdown", "html", "latex",
-  "latex_math", "docx", "plotmath"), info = FALSE, print = TRUE)
+cor_apa(
+  x,
+  r_ci = FALSE,
+  format = c("text", "markdown", "rmarkdown", "html", "latex", "latex_math", "docx",
+    "plotmath"),
+  info = FALSE,
+  print = TRUE
+)
 }
 \arguments{
 \item{x}{A call to \code{cor.test}}
+
+\item{r_ci}{Logical indicating whether to display the confidence interval
+for the correlation coefficient (default is \code{FALSE}). Only available
+for Pearson's product moment correlation (with n >= 4).}
 
 \item{format}{Character string specifying the output format. One of
 \code{"text"}, \code{"markdown"}, \code{"rmarkdown"}, \code{html},

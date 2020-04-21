@@ -4,9 +4,15 @@
 \alias{t_apa}
 \title{Report t-Test in APA style}
 \usage{
-t_apa(x, es = "cohens_d", format = c("text", "markdown", "rmarkdown",
-  "html", "latex", "latex_math", "docx", "plotmath"), info = FALSE,
-  print = TRUE)
+t_apa(
+  x,
+  es = "cohens_d",
+  es_ci = FALSE,
+  format = c("text", "markdown", "rmarkdown", "html", "latex", "latex_math", "docx",
+    "plotmath"),
+  info = FALSE,
+  print = TRUE
+)
 }
 \arguments{
 \item{x}{A call to \code{t_test} or \code{t.test}}
@@ -15,6 +21,9 @@ t_apa(x, es = "cohens_d", format = c("text", "markdown", "rmarkdown",
 \code{"cohens_d"} (default), \code{"hedges_g"} or \code{"glass_delta"} if
 \code{x} is an independent samples t-test. Ignored if \code{x} is a paired
 samples or one sample t-test (cohen's d is reported for these test).}
+
+\item{es_ci}{Logical indicating whether to add the 95% confidence interval
+for Cohen's d (experimental; default is \code{FALSE}).}
 
 \item{format}{Character string specifying the output format. One of
 \code{"text"}, \code{"markdown"}, \code{"rmarkdown"}, \code{html},

@@ -9,6 +9,9 @@
 #'   and mixed design ANOVA). Can be one of \code{"greenhouse-geisser"}
 #'   (default), \code{"huynh-feldt"} or \code{"none"} (you may also use the
 #'   abbreviations \code{"gg"} or \code{"hf"}).
+#' @param force_sph_corr Logical indicating if sphericity correction should be
+#'   applied to all within factors regardless of what the result of Mauchly's
+#'   test of sphericity is (default is \code{FALSE}).
 #' @param es Character string indicating the effect size to display in the
 #'   output, one of \code{"petasq"} (partial eta squared) or \code{"getasq"}
 #'   (generalized eta squared) (you may also use the abbreviations \code{"pes"}
@@ -41,6 +44,7 @@
 anova_apa <- function(x, effect = NULL,
                       sph_corr = c("greenhouse-geisser", "gg", "huynh-feldt",
                                    "hf", "none"),
+                      force_sph_corr = FALSE,
                       es = c("petasq", "pes", "getasq", "ges"),
                       format = c("text", "markdown", "rmarkdown", "html",
                                  "latex", "latex_math", "docx", "plotmath"),
@@ -65,11 +69,12 @@ anova_apa <- function(x, effect = NULL,
   }
   else if (inherits(x, "afex_aov"))
   {
-    anova_apa_afex(x, effect, sph_corr, es, format, info, print)
+    anova_apa_afex(x, effect, sph_corr, force_sph_corr, es, format, info, print)
   }
   else if (is.list(x) && names(x)[1] == "ANOVA")
   {
-    anova_apa_ezanova(x, effect, sph_corr, es, format, info, print)
+    anova_apa_ezanova(x, effect, sph_corr, force_sph_corr, es, format, info,
+                      print)
   }
   else
   {
@@ -77,7 +82,7 @@ anova_apa <- function(x, effect = NULL,
   }
 }
 
-#' @importFrom dplyr data_frame
+#' @importFrom tibble tibble
 #' @importFrom purrr map_chr
 #' @importFrom stringr str_trim
 anova_apa_aov <- function(x, effect, es, format, info, print)
@@ -100,7 +105,7 @@ anova_apa_aov <- function(x, effect, es, format, info, print)
   row_resid <- nrow(anova)
 
   # Extract information from anova object
-  tbl <- data_frame(
+  tbl <- tibble(
     effects = str_trim(row.names(anova)[-row_resid]),
     statistic = map_chr(anova$`F value`[-row_resid], fmt_stat),
     df_n = anova$Df[-row_resid], df_d = anova$Df[row_resid],
@@ -157,7 +162,7 @@ anova_apa_aovlist <- function(x, effect, sph_corr, es, format, info, print)
   anova_apa_print(tbl, effect, es, format, print)
 }
 
-#' @importFrom dplyr data_frame
+#' @importFrom tibble tibble
 #' @importFrom stringr str_trim
 extract_stats_aovlist <- function(x)
 {
@@ -170,7 +175,7 @@ extract_stats_aovlist <- function(x)
   # The row number where residuals are stored
   row_resid <- nrow(x)
 
-  data_frame(
+  tibble(
     effects = str_trim(row.names(x)[-row_resid]),
     statistic = map_chr(x$`F value`[-row_resid], fmt_stat),
     df_n = x$Df[-row_resid], df_d = x$Df[row_resid],
@@ -179,11 +184,13 @@ extract_stats_aovlist <- function(x)
   )
 }
 
-#' @importFrom dplyr data_frame
+#' @importFrom dplyr rowwise mutate_at
+#' @importFrom tibble tibble
 #' @importFrom magrittr %>% %<>%
 #' @importFrom purrr map map_chr
 #' @importFrom stringr str_extract
-anova_apa_afex <- function(x, effect, sph_corr, es, format, info, print)
+anova_apa_afex <- function(x, effect, sph_corr, force_sph_corr, es, format,
+                           info, print)
 {
   info_msg <- ""
 
@@ -192,7 +199,7 @@ anova_apa_afex <- function(x, effect, sph_corr, es, format, info, print)
   anova <- anova(x, intercept = TRUE, correction = "none")
 
   # Extract information from anova object
-  tbl <- data_frame(
+  tbl <- tibble(
     effects = row.names(anova),
     statistic = map_chr(anova$F, fmt_stat),
     df_n = anova$`num Df`, df_d = anova$`den Df`,
@@ -202,8 +209,8 @@ anova_apa_afex <- function(x, effect, sph_corr, es, format, info, print)
                                    leading_zero = FALSE))
   )
 
-  # Check if within-effects are present
-  if (length(attr(x, "within")) != 0)
+  # Check if within-effects are present and user wants sphericity correction
+  if (length(attr(x, "within")) != 0 && sph_corr != "none")
   {
     # To access sphericity tests in afex, we need to call `summary`
     s <- summary(x)
@@ -214,17 +221,34 @@ anova_apa_afex <- function(x, effect, sph_corr, es, format, info, print)
     # Extract Mauchly's test of sphericity
     sph_tests <- s$sphericity.tests
 
-    # Check which effects do not meet the assumption of sphericity
-    mauchlys <- dimnames(sph_tests)[[1]][which(sph_tests[, "p-value"] < .05)]
+    # Check if user wants sphericity correction for all within factors
+    if (force_sph_corr)
+    {
+      # Select all within factors
+      mauchlys <- dimnames(sph_tests)[[1]]
+    }
+    else
+    {
+      # Check which effects do not meet the assumption of sphericity
+      mauchlys <- dimnames(sph_tests)[[1]][which(sph_tests[, "p-value"] < .05)]
+    }
 
     if (length(mauchlys) > 0)
     {
       # Apply correction to degrees of freedom
       tbl[tbl$effects %in% mauchlys, c("df_n", "df_d")] %<>%
         # Multiply df with correction factor (epsilon)
-        `*`(s$pval.adjustments[mauchlys, paste(corr_method, "eps")]) %>%
-        # Format to two decimal points
-        map(fmt_stat, equal_sign = FALSE)
+        `*`(s$pval.adjustments[mauchlys, paste(corr_method, "eps")])
+
+      # Since corrected dfs have decimal places, we need to format these to two
+      tbl <-
+        tbl %>%
+        rowwise() %>%
+        # . %% 1 == 0 checks if number has decimal places
+        # As of tibble 3.0.0 we need to manually convert all column entries to
+        # character, as types are not converted automatically
+        mutate_at(c("df_n", "df_d"), ~ ifelse(. %% 1 == 0, as.character(.),
+                                              fmt_stat(., equal_sign = FALSE)))
 
       # Replace p-values in tbl with corrected ones
       tbl[tbl$effects %in% mauchlys, "p"] <-
@@ -275,10 +299,12 @@ anova_apa_afex <- function(x, effect, sph_corr, es, format, info, print)
   anova_apa_print(tbl, effect, es, format, print)
 }
 
-#' @importFrom dplyr data_frame left_join
+#' @importFrom dplyr left_join rowwise mutate_at
 #' @importFrom magrittr %>% %<>%
 #' @importFrom stringr str_extract
-anova_apa_ezanova <- function(x, effect, sph_corr, es, format, info, print)
+#' @importFrom tibble tibble
+anova_apa_ezanova <- function(x, effect, sph_corr, force_sph_corr, es, format,
+                              info, print)
 {
   info_msg <- ""
 
@@ -290,7 +316,7 @@ anova_apa_ezanova <- function(x, effect, sph_corr, es, format, info, print)
   }
 
   # Extract information from anova object
-  tbl <- data_frame(
+  tbl <- tibble(
     effects = anova$Effect,
     statistic = map_chr(anova$F, fmt_stat),
     df_n = anova$DFn, df_d = anova$DFd, p = map_chr(anova$p, fmt_pval),
@@ -307,19 +333,33 @@ anova_apa_ezanova <- function(x, effect, sph_corr, es, format, info, print)
 
     # ezANOVA stores sphericity tests and correction values in two data frames,
     # which are combined here.
-    # Next, check which effects do not meet the assumption of sphericity
     mauchlys <- left_join(x$`Mauchly's Test for Sphericity`,
-                          x$`Sphericity Corrections`, by = "Effect") %>%
-      `[`(.$p < .05, )
+                          x$`Sphericity Corrections`, by = "Effect")
+
+    # Checking of significance of Mauchly's test only if user does not want to
+    # force sphericity correction for all within factors
+    if (!force_sph_corr)
+    {
+      # Check which effects do not meet the assumption of sphericity
+      mauchlys %<>% `[`(.$p < .05, )
+    }
 
     if (nrow(mauchlys) > 0)
     {
       # Apply correction to degrees of freedom
       tbl[match(mauchlys$Effect, tbl$effects), c("df_n", "df_d")] %<>%
         # Multiply df with correction factor (epsilon)
-        `*`(mauchlys[[paste0(corr_method, "e")]]) %>%
-        # Format to two decimal points
-        map(fmt_stat, equal_sign = FALSE)
+        `*`(mauchlys[[paste0(corr_method, "e")]])
+
+      # Since corrected dfs have decimal places, we need to format these to two
+      tbl <-
+        tbl %>%
+        rowwise() %>%
+        # . %% 1 == 0 checks if number has decimal places
+        # As of tibble 3.0.0 we need to manually convert all column entries to
+        # character, as types are not converted automatically
+        mutate_at(c("df_n", "df_d"), ~ ifelse(. %% 1 == 0, as.character(.),
+                                              fmt_stat(., equal_sign = FALSE)))
 
       # Replace p-values in tbl with corrected ones
       tbl[match(mauchlys$Effect, tbl$effects), "p"] <-
@@ -366,10 +406,10 @@ anova_apa_ezanova <- function(x, effect, sph_corr, es, format, info, print)
   anova_apa_print(tbl, effect, es, format, print)
 }
 
-#' @importFrom dplyr data_frame
 #' @importFrom magrittr %>% %<>%
 #' @importFrom purrr map_chr
 #' @importFrom rmarkdown render
+#' @importFrom tibble tibble
 anova_apa_print <- function(tbl, effect, es_name, format, print)
 {
   # Output for default parameters
@@ -428,7 +468,7 @@ anova_apa_print <- function(tbl, effect, es_name, format, print)
     {
       if (is.null(effect))
       {
-        data_frame(effect = tbl$effects, text = text)
+        tibble(effect = tbl$effects, text = text)
       }
       else
       {
@@ -438,6 +478,7 @@ anova_apa_print <- function(tbl, effect, es_name, format, print)
   }
 }
 
+#' @importFrom tibble tibble
 anova_apa_print_default <- function(tbl, effect, es_name)
 {
   # Split test statistic and its sign, because the tabular output will be
@@ -445,7 +486,7 @@ anova_apa_print_default <- function(tbl, effect, es_name)
   sign <- substr(tbl$statistic, 1, 1)
   statistic <- substr(tbl$statistic, 2, nchar(tbl$statistic))
 
-  tbl <- data_frame(
+  tbl <- tibble(
     Effect = tbl$effects,
     ` ` = paste0("F(", tbl$df_n, ", ", tbl$df_d, ") ", sign,
                  format(statistic, width = max(nchar(statistic)),
@@ -532,8 +573,13 @@ reorder_anova_tbl <- function(x)
     # Create the new effects order (main effects, two-way interactions, ...)
     map(~ combn(factors, .x, FUN = concat_fctrs, simplify = FALSE)) %>%
     unlist() %>%
-    # Add regex for intercept line
-    { c("\\(Intercept\\)", .) } %>%
+    # Add regex for intercept line (if intercept is present in 'x')
+    {
+      if (any(grepl("(Intercept)", x$effects)))
+        c("\\(Intercept\\)", .)
+      else
+        .
+    } %>%
     # Get row index for each effect in old ANOVA table
     map_dbl(~ grep(paste0("^", .x, "$"), x$effects))
 

@@ -1,3 +1,19 @@
+# apa 0.3.3
+
+## New features
+
+* Add option to force sphericity correction on all within factors in ANOVA or
+  turn of sphericity correction completely.
+* Add option to display confidence interval for pearson correlation.
+* Add option to display condidence interval for Cohen's d (experimental).
+
+## Bug fixes
+
+* Add missing backslash for chi-square in LaTeX format.
+* Fix error in one sample `cohens_d` if input is from `t_test`.
+* Fix error that was introduced by tibble 3.0.0 (old code assumed automatic type
+  conversion)
+
 # apa 0.3.2
 
 ## Bug fixes
