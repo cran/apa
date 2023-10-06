@@ -1,4 +1,4 @@
-## ---- warning=FALSE, echo=FALSE-----------------------------------------------
+## ----warning=FALSE, echo=FALSE------------------------------------------------
 library(apa)
 
 ## -----------------------------------------------------------------------------
@@ -18,11 +18,11 @@ cor_apa(ct, format = "rmarkdown")
 ## -----------------------------------------------------------------------------
 cor_apa(ct, format = "latex")
 
-## ---- eval=FALSE--------------------------------------------------------------
+## ----eval=FALSE---------------------------------------------------------------
 #  # Opens a temporary document in your word processor
 #  cor_apa(ct, format = "docx")
 
-## ---- fig.width=6, fig.height=5-----------------------------------------------
+## ----fig.width=6, fig.height=5------------------------------------------------
 # Paste output in a plot using R's plotmath syntax
 plot(x, y)
 abline(lm(y ~ x))
