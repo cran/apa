@@ -19,8 +19,8 @@ cor_apa(ct, format = "rmarkdown")
 cor_apa(ct, format = "latex")
 
 ## ----eval=FALSE---------------------------------------------------------------
-#  # Opens a temporary document in your word processor
-#  cor_apa(ct, format = "docx")
+# # Opens a temporary document in your word processor
+# cor_apa(ct, format = "docx")
 
 ## ----fig.width=6, fig.height=5------------------------------------------------
 # Paste output in a plot using R's plotmath syntax
